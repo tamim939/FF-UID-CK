@@ -1,0 +1,6 @@
+{
+  "name": "Free Fire UID Nickname Checker",
+  "description": "A simple tool to check the nickname of a Free Fire player using their UID.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
