@@ -18,14 +18,18 @@ async function startServer() {
 
     try {
       const url = `https://zevnixapi.vercel.app/nickname?uid=${encodeURIComponent(uid)}`;
+      console.log(`Fetching UID: ${uid} from URL: ${url}`);
       
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        signal: AbortSignal.timeout(10000) // 10 second timeout
+      });
       
       if (!response.ok) {
-        throw new Error("Failed to fetch from API");
+        const errorText = await response.text();
+        console.error(`API Error: ${response.status} - ${errorText}`);
+        return res.status(response.status).json({ error: "এপিআই সার্ভারে সমস্যা হচ্ছে। পরে চেষ্টা করুন।" });
       }
 
-      // Checking if response is JSON or text
       const contentType = response.headers.get("content-type");
       let nickname = "";
 
@@ -36,14 +40,19 @@ async function startServer() {
         nickname = await response.text();
       }
       
-      if (nickname && nickname.trim()) {
+      console.log(`Success! Nickname for ${uid}: ${nickname}`);
+
+      if (nickname && nickname.trim() && nickname.trim() !== "Player not found" && nickname.trim() !== "Invalid UID") {
         return res.json({ nickname: nickname.trim() });
       }
 
-      res.status(404).json({ error: "প্লেয়ারের নাম পাওয়া যায়নি।" });
-    } catch (error) {
+      res.status(404).json({ error: "ইউআইডি (UID) ভুল অথবা প্লেয়ার পাওয়া যায়নি।" });
+    } catch (error: any) {
       console.error("Error checking UID:", error);
-      res.status(500).json({ error: "Server error while checking UID" });
+      if (error.name === 'TimeoutError') {
+        return res.status(504).json({ error: "এপিআই রেসপন্স দিতে দেরি করছে। আবার চেষ্টা করুন।" });
+      }
+      res.status(500).json({ error: "সার্ভারের সাথে যোগাযোগ করতে সমস্যা হচ্ছে।" });
     }
   });
 
