@@ -17,7 +17,8 @@ async function startServer() {
     }
 
     try {
-      const url = `https://zevnixapi.vercel.app/nickname?uid=${encodeURIComponent(uid)}`;
+      const apiKey = process.env.TOPX_API_KEY || "API-6PWWY2SU";
+      const url = `https://topx.thtopup.shop/api.php?uid=${encodeURIComponent(uid)}&key=${apiKey}`;
       console.log(`Fetching UID: ${uid} from URL: ${url}`);
       
       const response = await fetch(url, {
@@ -35,14 +36,23 @@ async function startServer() {
 
       if (contentType && contentType.includes("application/json")) {
         const data = await response.json();
-        nickname = data.nickname || data.name || data.nickname_freefire || data.result;
+        // Matching the screenshot: { "status": true, "data": { "username": "..." } }
+        nickname = data.data?.username || data.data?.message || data.name || data.nickname || data.result;
       } else {
-        nickname = await response.text();
+        // Fallback for plain text responses
+        const text = await response.text();
+        try {
+          // Try to parse if it's JSON in text form
+          const data = JSON.parse(text);
+          nickname = data.name || data.nickname || data.nickname_freefire || data.result;
+        } catch {
+          nickname = text;
+        }
       }
       
       console.log(`Success! Nickname for ${uid}: ${nickname}`);
 
-      if (nickname && nickname.trim() && nickname.trim() !== "Player not found" && nickname.trim() !== "Invalid UID") {
+      if (nickname && nickname.trim() && !nickname.includes("Invalid") && !nickname.includes("not found")) {
         return res.json({ nickname: nickname.trim() });
       }
 
