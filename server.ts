@@ -19,50 +19,36 @@ async function startServer() {
     try {
       const apiKey = process.env.TOPX_API_KEY || "API-6PWWY2SU";
       const url = `https://topx.thtopup.shop/api.php?uid=${encodeURIComponent(uid)}&key=${apiKey}`;
-      console.log(`Fetching UID: ${uid} from URL: ${url}`);
       
       const response = await fetch(url, {
-        signal: AbortSignal.timeout(10000) // 10 second timeout
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json'
+        },
+        signal: AbortSignal.timeout(15000) // Increase timeout to 15 seconds
       });
       
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`API Error: ${response.status} - ${errorText}`);
-        return res.status(response.status).json({ error: "এপিআই সার্ভারে সমস্যা হচ্ছে। পরে চেষ্টা করুন।" });
+        return res.status(response.status).json({ error: "এপিআই সার্ভার থেকে রেসপন্স পাওয়া যাচ্ছে না।" });
       }
 
-      const contentType = response.headers.get("content-type");
-      let nickname = "";
-
-      if (contentType && contentType.includes("application/json")) {
-        const data = await response.json();
-        // Matching the screenshot: { "status": true, "data": { "username": "..." } }
-        nickname = data.data?.username || data.data?.message || data.name || data.nickname || data.result;
-      } else {
-        // Fallback for plain text responses
-        const text = await response.text();
-        try {
-          // Try to parse if it's JSON in text form
-          const data = JSON.parse(text);
-          nickname = data.name || data.nickname || data.nickname_freefire || data.result;
-        } catch {
-          nickname = text;
-        }
-      }
+      const data = await response.json();
       
-      console.log(`Success! Nickname for ${uid}: ${nickname}`);
-
-      if (nickname && nickname.trim() && !nickname.includes("Invalid") && !nickname.includes("not found")) {
-        return res.json({ nickname: nickname.trim() });
+      // Matching the API structure: { "status": true, "data": { "username": "..." } }
+      if (data && data.status === true && data.data && data.data.username) {
+        return res.json({ nickname: data.data.username });
+      } else if (data && data.status === false) {
+        return res.status(404).json({ error: data.message || "প্লেয়ার পাওয়া যায়নি বা ইউআইডি ভুল।" });
       }
 
-      res.status(404).json({ error: "ইউআইডি (UID) ভুল অথবা প্লেয়ার পাওয়া যায়নি।" });
+      res.status(404).json({ error: "সঠিক তথ্য পাওয়া যায়নি। আবার চেষ্টা করুন।" });
     } catch (error: any) {
-      console.error("Error checking UID:", error);
+      console.error("Fetch Error:", error);
       if (error.name === 'TimeoutError') {
-        return res.status(504).json({ error: "এপিআই রেসপন্স দিতে দেরি করছে। আবার চেষ্টা করুন।" });
+        return res.status(504).json({ error: "সার্ভার রেসপন্স দিতে দেরি করছে। আবার চেষ্টা করুন।" });
       }
-      res.status(500).json({ error: "সার্ভারের সাথে যোগাযোগ করতে সমস্যা হচ্ছে।" });
+      res.status(500).json({ error: "সার্ভারের সাথে সংযোগ বিচ্ছিন্ন হয়েছে। ইন্টারনেট কানেকশন চেক করুন।" });
     }
   });
 
